@@ -1,6 +1,6 @@
-const CACHE_NAME = 'random33';
+const CACHE_NAME = 'Random';
 const urlsToCache = [
-  '.',
+  './',
   'index.html',
   'img/favicon.ico',
   'img/icon-192.png',
@@ -9,55 +9,44 @@ const urlsToCache = [
   'manifest.json'
 ];
 
-// При установке кешируем нужные ресурсы
 self.addEventListener('install', event => {
+  self.skipWaiting();
   event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => cache.addAll(urlsToCache))
-      .then(() => self.skipWaiting())
+    caches.open(CACHE_NAME).then(cache => cache.addAll(urlsToCache))
   );
 });
 
-// При активации удаляем старые кеши
 self.addEventListener('activate', event => {
   event.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(
+    Promise.all([
+      self.clients.claim(),
+      caches.keys().then(keys => Promise.all(
         keys.filter(key => key !== CACHE_NAME).map(key => caches.delete(key))
-      )
-    ).then(() => self.clients.claim())
+      ))
+    ])
   );
 });
 
-// Функция с таймаутом для fetch
-function fetchWithTimeout(request, timeout = 4000) {
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error('Timeout')), timeout);
-    fetch(request).then(response => {
-      clearTimeout(timer);
-      resolve(response);
-    }, reject);
-  });
-}
-
-// Обработчик fetch - сначала пытаемся получить из сети с таймаутом,
-// если не получается - отдаем из кеша
 self.addEventListener('fetch', event => {
+  const url = new URL(event.request.url);
+
+  if (event.request.method !== 'GET' || !url.protocol.startsWith('http')) return;
+
   event.respondWith(
-    fetchWithTimeout(event.request)
-      .then(networkResponse => {
-        if (networkResponse && networkResponse.status === 200) {
-          const url = new URL(event.request.url);
-          if (url.protocol === 'http:' || url.protocol === 'https:') {
-            const responseClone = networkResponse.clone();
-            caches.open(CACHE_NAME).then(cache => {
-              cache.put(event.request, responseClone);
-            });
-          }
-          return networkResponse;
+    caches.match(event.request).then(cachedResponse => {
+      if (!navigator.onLine && !cachedResponse) {
+        return new Response("Offline", { status: 503 });
+      }
+
+      const fetchPromise = fetch(event.request).then(networkResponse => {
+        if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
+          const responseClone = networkResponse.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(event.request, responseClone));
         }
-        return caches.match(event.request);
-      })
-      .catch(() => caches.match(event.request).then(resp => resp || new Response("Not found", { status: 404 })))
+        return networkResponse;
+      }).catch(() => cachedResponse); 
+
+      return cachedResponse || fetchPromise;
+    })
   );
 });
