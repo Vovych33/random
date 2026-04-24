@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <title>Генератор случайных чисел</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="shortcut icon" href="img/favicon.ico">
+    <style>
+		:root {
+			--primary-color: #1fc5a8;
+			--primary-hover: #17a790;
+			--text-main: #333;
+			--text-muted: #444;
+			--border-color: #ccc;
+			--bg-white: #ffffff;
+			--shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+		}
+
+		* {
+			box-sizing: border-box;
+		}
+
+		body {
+			font-family: 'Arial', sans-serif;
+			background-color: var(--bg-white);
+			margin: 0;
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			min-height: 100vh;
+		}
+
+		.content {
+			background: var(--bg-white);
+			padding: 40px 30px;
+			border-radius: 14px;
+			box-shadow: var(--shadow);
+			text-align: center;
+			width: 380px;
+		}
+
+		.like_h2 {
+			font-size: 24px;
+			margin-bottom: 25px;
+			color: var(--text-main);
+		}
+
+		#attemptsCounter,
+		#generatedTime {
+			font-size: 0.85em;
+			margin-bottom: 20px;
+		}
+
+		#generatedTime {
+			margin-bottom: 0;
+		}
+
+		.question-number img {
+			width: 120px;
+			height: 120px;
+			opacity: 0.5;
+			margin-bottom: 25px;
+		}
+
+		.result {
+			margin: 20px 0 15px;
+			font-size: 18px;
+			color: var(--text-main);
+		}
+
+		.result-large {
+			font-size: 64px;
+			color: var(--text-main);
+		}
+
+		.hidden {
+			display: none;
+		}
+
+		/* Общие стили для рядов ввода */
+		.input-row, 
+		.range-group {
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			gap: 10px;
+			margin-bottom: 12px;
+			width: 100%;
+		}
+
+		.range-group {
+			gap: 8px;
+		}
+
+		.input-row label,
+		.range-group label {
+			font-size: 14px;
+			color: var(--text-muted);
+			white-space: nowrap;
+		}
+
+		.input-row input,
+		.range-group input {
+			width: 60px;
+			padding: 6px 8px;
+			font-size: 14px;
+			text-align: center;
+			border-radius: 4px;
+			border: 1px solid var(--border-color);
+		}
+
+		.checkbox-group {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			gap: 10px;
+			margin: 20px 0;
+		}
+
+		.form-check {
+			display: flex;
+			align-items: center;
+			font-size: 14px;
+			color: var(--text-muted);
+		}
+
+		.form-check-input {
+			margin-right: 10px;
+		}
+
+		.random-button {
+			background-color: var(--primary-color);
+			color: white;
+			border: none;
+			padding: 12px 22px;
+			border-radius: 6px;
+			cursor: pointer;
+			font-weight: bold;
+			font-size: 15px;
+			transition: background-color 0.3s ease;
+			width: 100%;
+			margin-top: 10px;
+		}
+
+		.random-button:hover {
+			background-color: var(--primary-hover);
+		}
+    </style>
+</head>
+<body>
+
+<div class="content">
+    <div class="like_h2">Случайное число</div>
+    
+    <div id="generatedTime" style="display:none;">
+        Сгенерировано: <b id="generatedDateTime"></b>
+    </div>
+    <div id="attemptsCounter" style="display:none;">
+        Попыток за последние 30 мин: <b id="attemptsCount">0</b>
+    </div>
+  
+    <div class="question-number" id="questionBox">
+        <img src="img/question.png" alt="случайные числа" title="тут будут случайные числа" id="questionImage">
+    </div>
+  
+    <div class="result hidden" id="result"></div> 
+  
+    <div class="frm-number">
+        <form id="random-form">
+            <div class="input-row">
+                <label for="polz-val">Количество чисел</label>
+                <input type="number" class="form-control" id="polz-val" value="1" min="1" max="100" required>
+            </div>
+
+            <div class="range-group">
+                <label for="ot">От</label>
+                <input type="number" class="form-control" id="ot" value="1" required>
+                <label for="do">до</label>
+                <input type="number" class="form-control" id="do" value="100" required>
+            </div>
+
+            <div class="checkbox-group">
+                <div class="form-check">
+                    <input id="check" type="checkbox" class="form-check-input">
+                    <label class="form-check-label" for="check">исключить повторения</label>
+                </div>
+            </div>
+            <button type="submit" class="random-button">Сгенерировать</button>
+        </form>
+    </div>
+</div>
+
+<script>
+	function updateAttemptsCounter() {
+		const attemptsCountElem = document.getElementById('attemptsCount');
+		const now = Date.now();
+		const THIRTY_MIN = 30 * 60 * 1000;
+
+		let attempts = JSON.parse(localStorage.getItem('generationAttempts') || '[]');
+
+		attempts = attempts.filter(timestamp => now - timestamp <= THIRTY_MIN);
+
+		localStorage.setItem('generationAttempts', JSON.stringify(attempts));
+
+		attemptsCountElem.textContent = attempts.length;
+	}
+
+	function addAttempt() {
+		const now = Date.now();
+		let attempts = JSON.parse(localStorage.getItem('generationAttempts') || '[]');
+		attempts.push(now);
+		localStorage.setItem('generationAttempts', JSON.stringify(attempts));
+	}
+
+	function formatDateTime(date) {
+		function pad(num) {
+			return num.toString().padStart(2, '0');
+		}
+		return `${pad(date.getDate())}.${pad(date.getMonth() + 1)}.${date.getFullYear()} ` +
+			   `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+	}
+
+	document.getElementById('attemptsCounter').style.display = 'none';
+	document.getElementById('generatedTime').style.display = 'none';
+	document.getElementById('random-form').addEventListener('submit', function(event) {
+		event.preventDefault();
+
+		const count = parseInt(document.getElementById('polz-val').value);
+		const min = parseInt(document.getElementById('ot').value);
+		const max = parseInt(document.getElementById('do').value);
+		const excludeDuplicates = document.getElementById('check').checked;
+
+		const resultElement = document.getElementById('result');
+		const questionImage = document.getElementById('questionImage');
+
+		resultElement.classList.remove('hidden');
+		questionImage.classList.add('hidden');
+
+		if (isNaN(count) || isNaN(min) || isNaN(max)) {
+			resultElement.innerHTML = `<div class="error">Ошибка!<br>Заполните все поля корректно.</div>`;
+			return;
+		}
+
+		if (min > max) {
+			resultElement.innerHTML = `<div class="error">Ошибка!<br>Минимальное значение не может быть больше максимального.</div>`;
+			return;
+		}
+
+		if (count <= 0) {
+			resultElement.innerHTML = `<div class="error">Ошибка!<br>Количество чисел должно быть больше нуля.</div>`;
+			return;
+		}
+
+		if (excludeDuplicates && count > (max - min + 1)) {
+			resultElement.innerHTML = `<div class="error">Ошибка!<br>Количество уникальных чисел не может превышать размер диапазона.</div>`;
+			return;
+		}
+
+		let randomNumbersArray = [];
+
+		function getSecureRandom(min, max) {
+			const range = max - min + 1;
+			const randomUint32 = new Uint32Array(1);
+			window.crypto.getRandomValues(randomUint32);
+			return min + (randomUint32[0] % range);
+		}
+
+		if (excludeDuplicates) {
+			let numbers = new Set();
+			while (numbers.size < count) {
+				numbers.add(getSecureRandom(min, max));
+			}
+			randomNumbersArray = Array.from(numbers);
+		} else {
+			for (let i = 0; i < count; i++) {
+				randomNumbersArray.push(getSecureRandom(min, max));
+			}
+		}
+
+
+		if (randomNumbersArray.length === 1) {
+			resultElement.innerHTML = `<div class="result-large">${randomNumbersArray[0]}</div>`;
+		} else {
+			resultElement.innerHTML = `<div class="result">${randomNumbersArray.join(', ')}</div>`;
+		}
+
+		addAttempt();
+
+		updateAttemptsCounter();
+		document.getElementById('attemptsCounter').style.display = 'block';
+
+		const now = new Date();
+		const formattedDateTime = formatDateTime(now);
+		const generatedDateTimeElem = document.getElementById('generatedDateTime');
+		generatedDateTimeElem.textContent = formattedDateTime;
+		document.getElementById('generatedTime').style.display = 'block';
+	});
+
+	if ('serviceWorker' in navigator) {
+	  window.addEventListener('load', () => {
+		navigator.serviceWorker.register('sw.js').then(registration => {
+		}).catch(error => {
+		  console.log('Ошибка регистрации ServiceWorker:', error);
+		});
+	  });
+	}
+</script>
+
+</body>
+</html>
